@@ -160,7 +160,7 @@ def get_dash_app(grid, energies0, dpms, pols):
     }
     pot_func = partial(get_potential, **pot_kwargs)
 
-    app = dash.Dash()
+    app = dash.Dash(__name__)
 
     app.layout = html.Div([
         html.Div([
