@@ -66,7 +66,10 @@ def get_potential(efield, rot_approx, pot_type,
              "mode": "lines+markers",
              "name": "E(F)",
              "line": {
-                "width": 4,
+                "width": 6,
+             },
+             "marker": {
+                 "size": 12,
              }
             },
         ]
@@ -109,7 +112,8 @@ def get_potential(efield, rot_approx, pot_type,
                 name = "Field dressed minimum",
                 marker = dict(
                     size=10,
-                    color="rgb(122,122,122)",
+                    # color="rgb(122,122,122)",
+                    color="rgb(255,255,255)",
                 )
             ),
         ]
@@ -134,7 +138,7 @@ def get_potential(efield, rot_approx, pot_type,
     return data, layout
 
 
-E_MIN = -0.07
+E_MIN = -0.074
 E_MAX =  -1*E_MIN
 E_STEP = 0.001
 
@@ -192,7 +196,8 @@ def get_dash_app(grid, energies0, dpms, pols):
                 get_E_slider("Ex-slider"),
                 get_E_slider("Ey-slider"),
                 get_E_slider("Ez-slider"),
-                html.Div(id="Efield-output", style={"fontSize": 20}),
+                html.Div(id="Efield-au-output", style={"fontSize": 20}),
+                html.Div(id="Efield-va-output", style={"fontSize": 20}),
                 dcc.Checklist(id="rot-approx",
                     options=[
                         {"label": "Rotating wave approximation (no dipole  contribution)",
@@ -282,14 +287,27 @@ def get_dash_app(grid, energies0, dpms, pols):
         return figure
 
     @app.callback(
-        Output("Efield-output", "children"),
+        Output("Efield-au-output", "children"),
         [Input(component_id="Ex-slider", component_property="value"),
          Input(component_id="Ey-slider", component_property="value"),
          Input(component_id="Ez-slider", component_property="value"),
         ]
     )
-    def set_efield_output(Ex, Ey, Ez):
-        efield_str = f"F = ({Ex:.4f}, {Ey:.4f}, {Ez:.4f})"
+    def set_efield_au_output(Ex, Ey, Ez):
+        efield_str = f"F / au = ({Ex:.4f}, {Ey:.4f}, {Ez:.4f})"
+        return efield_str
+
+    @app.callback(
+        Output("Efield-va-output", "children"),
+        [Input(component_id="Ex-slider", component_property="value"),
+         Input(component_id="Ey-slider", component_property="value"),
+         Input(component_id="Ez-slider", component_property="value"),
+        ]
+    )
+    def set_efield_va_output(Ex, Ey, Ez):
+        efs = np.array((Ex, Ey, Ez)) * 51.422065
+        Ex, Ey, Ez = efs
+        efield_str = f"F / V/Å = ({Ex:.4f}, {Ey:.4f}, {Ez:.4f})"
         return efield_str
 
     return app
@@ -299,18 +317,16 @@ def load_data(conf):
     energies_fn = conf["energies"]
     dpms_fn = conf["dipoles"]
     pols_fn = conf["stat_pols"]
-    # Convert unperturbed energies from eV to a.u.
-    energies0 = np.loadtxt(energies_fn)
-    energies0 /=  27.2114
-    dpms = np.loadtxt(dpms_fn)[:,:3]
-    # For now use only ever other DPM, as HF and MP2 DPMs are interleaved
-    dpms = dpms[1::2]
-    pols = np.loadtxt(pols_fn)
+    energies = np.load(energies_fn).flatten()
+    dpms = np.load(dpms_fn).reshape(energies.size, 3)
+    pols = np.load(pols_fn)
+    pols = np.diagonal(pols, axis1=2, axis2=3).reshape(energies.size, 3)
 
-    xs = np.arange(energies0.shape[0])
+    xs = np.arange(energies.size)
     grid = xs
 
-    return grid, energies0, dpms, pols
+    # import pdb; pdb.set_trace()
+    return grid, energies, dpms, pols
 
 
 def load_data_2d(conf):

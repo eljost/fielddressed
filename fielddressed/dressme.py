@@ -3,9 +3,14 @@
 import argparse
 import sys
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.lines as lines
 import numpy as np
 import yaml
+
+
+mpl.rcParams['lines.linewidth'] = 2.0
 
 
 def get_pot_fig(grid, energies0, dipoles, polarizabilities, efield,
@@ -31,8 +36,6 @@ def get_pot_fig(grid, energies0, dipoles, polarizabilities, efield,
                                        energies_dressed.shape)
 
     fig, ax = plt.subplots()
-
-
     levels = np.linspace(min(0, energies_dressed.min()),
                          energies_dressed.max()*.5, 35)
     cf = ax.contourf(C1, C2, energies_dressed, levels=levels)
@@ -44,37 +47,78 @@ def get_pot_fig(grid, energies0, dipoles, polarizabilities, efield,
     ax.scatter(*org_min, label="Org. min.")
     ax.scatter(*dressed_min, label="Dressed. min.")
 
-    bend_label = "∠(H-O-H) / deg"
-    roh_label = "R(O-H)_sym / Å"
+    bend_label = "$\sphericalangle$(HOH) / deg"
+    roh_label = "r(OH)$_{/rm sym}$ / Å"
     ax.set_xlabel(bend_label)
     ax.set_ylabel(roh_label)
 
+    efield_fn_str = "F_" + "_".join([str(comp) for comp in efield])
     efield_str = f"F = {np.array2string(efield, precision=4)}"
     suptitle = efield_str
     if title:
         suptitle += f", {title}"
     fig.suptitle(f"{suptitle}")
-
     ax.legend()
+    fig.savefig(f"{efield_fn_str}_pes.pdf")
 
     cut_fig, cut_ax = plt.subplots()
     x_eq, y_eq = org_min_ind
-    cut_ax.plot(C2[y_eq], energies0[x_eq], label="Field free")
-    cut_ax.plot(C2[y_eq], energies_dressed[x_eq], label="Field dressed")
+    xs = C2[y_eq]
+    eq_ens = energies0[x_eq]
+    eq_min_ind = eq_ens.argmin()
+    dressed_ens = energies_dressed[x_eq]
+    dressed_min_ind = dressed_ens.argmin()
+    cut_ax.plot(xs, eq_ens, label="Field free")
+    cut_ax.plot(xs, dressed_ens, label="Field dressed")
+    eq_min_x = xs[eq_min_ind]
+    eq_min_y = eq_ens[eq_min_ind]
+    cut_ax.scatter(eq_min_x, eq_min_y, label="Field free min.")
+    dressed_min_x = xs[dressed_min_ind]
+    dressed_min_y = dressed_ens[dressed_min_ind]
+    cut_ax.scatter(dressed_min_x, dressed_min_y, label="Dressed min.")
+
+    def add_ax_lines(ax, point, color):
+        x, y = point
+
+        x_min, x_max = ax.get_ylim()
+        y_min, y_max = ax.get_ylim()
+        x_line = lines.Line2D(xdata=[x, x], ydata=[y_min, y], ls="--", c=color)
+        y_line = lines.Line2D(xdata=[x_min, x], ydata=[y, y], ls="--", c=color)
+        ax.add_line(x_line)
+        ax.add_line(y_line)
+    add_ax_lines(cut_ax, (eq_min_x, eq_min_y), "C0")
+    add_ax_lines(cut_ax, (dressed_min_x, dressed_min_y), "C1")
+
     cut_ax.set_xlabel(roh_label)
     cut_ax.set_ylabel("$\Delta E$ / au")
     cut_ax.legend()
-    cut_fig.suptitle(f"{efield_str}, ∠(H-O-H) = {C1[x_eq][0]:.2f}°")
+    cut_fig.suptitle(f"{efield_str}, {title}, $\sphericalangle$(HOH) = {C1[x_eq][0]:.2f}°")
+    cut_fig.savefig(f"{efield_fn_str}_bond.pdf")
 
     bend_fig, bend_ax = plt.subplots()
-    c1_coord = C1[:,y_eq]
-    bend_ax.plot(c1_coord, energies0[:,y_eq], label="Field free")
-    bend_ax.plot(c1_coord, energies_dressed[:,y_eq], label="Field dressed")
+    xs = C1[:,y_eq]
+    eq_ens = energies0[:,y_eq]
+    dressed_ens = energies_dressed[:,y_eq]
+    bend_ax.plot(xs, eq_ens, label="Field free")
+    bend_ax.plot(xs, dressed_ens, label="Field dressed")
+
+    eq_min_ind = eq_ens.argmin()
+    dressed_min_ind = dressed_ens.argmin()
+    eq_min_x = xs[eq_min_ind]
+    eq_min_y = eq_ens[eq_min_ind]
+    bend_ax.scatter(eq_min_x, eq_min_y, label="Field free min.")
+    dressed_min_x = xs[dressed_min_ind]
+    dressed_min_y = dressed_ens[dressed_min_ind]
+    bend_ax.scatter(dressed_min_x, dressed_min_y, label="Dressed min.")
+    add_ax_lines(bend_ax, (eq_min_x, eq_min_y), "C0")
+    add_ax_lines(bend_ax, (dressed_min_x, dressed_min_y), "C1")
+
     bend_ax.set_xlabel(bend_label)
     bend_ax.set_ylabel("$\Delta E$ / au")
     bend_ax.legend()
-    bend_ax.set_xlim(c1_coord.min(), c1_coord.max())
-    bend_fig.suptitle(f"{efield_str}, R(O-H)_sym = {C2[:,y_eq][0]:.2f}°")
+    bend_ax.set_xlim(xs.min(), xs.max())
+    bend_fig.suptitle(f"{efield_str}, {title}, r(OH)$_{{\\rm sym}}$ = {C2[:,y_eq][0]:.2f} Å")
+    bend_fig.savefig(f"{efield_fn_str}_angle.pdf")
 
     return fig, cut_fig
 
